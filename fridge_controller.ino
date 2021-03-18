@@ -18,6 +18,7 @@
 
 #define OPTION_COUNT 4
 
+typedef enum MENU_TYPE_ {MN_FLOAT = 1, MN_STRING = 2, MN_INT = 3} MENU_TYPE;
 
 const char opt_0[] PROGMEM = "Temp: "; // "String 0" etc são as strings a serem armazenadas - adapte ao seu programa.
 const char opt_1[] PROGMEM = "SetPo.: ";
@@ -30,7 +31,7 @@ const char *const options_str[] PROGMEM = {opt_0, opt_1, opt_2, opt_3};
  
 //Define os pinos que serão utilizados para ligação ao display
 LiquidCrystal lcd(7, 6, 5, 4, A5, 2);
-uint8_t btns[] = {8,9,10,12};
+uint8_t btns[] = {BT_DOWN, BT_UP, BT_LEFT, BT_RIGHT};
 Button buttons(btns, 4, 50);
 
 
@@ -51,7 +52,8 @@ uint8_t cur_line = 0;
 uint8_t cur_col = 0;
 uint8_t field_pos = 0;
 
-char * values[4] = {"01.00", "02.00", "03.00", "0"};
+char * values[4] = {"01.00", "02.00", "03.00", "30  "};
+MENU_TYPE menu_types[4] = {MN_FLOAT, MN_FLOAT, MN_FLOAT, MN_INT};
 
 
 void print_status(){
@@ -61,36 +63,61 @@ void print_status(){
   dtostrf(tempC, 2, 2, t_str);
   sprintf(status_str, "Temp.: %s", t_str);
   lcd.print(status_str);
+  lcd.setCursor(0, 1);
+  sprintf(status_str, "%d %d", cur_line, cur_col);
+  lcd.print(status_str);
 }
 
 
 void callback(uint8_t btPin){
     char tmp_str[10];
     char menu_str[16];
+    int tmp;
   
 
     lcd.clear();
     lcd.setCursor(0, 0);
 
     switch(btPin){
-      case BT_DOWN:
-        if ((cur_col == 0) && (cur_line > 0)){
-          cur_line--;
-        } else {
-          uint8_t val_col = cur_col - field_pos;
-          if (values[cur_line-1][val_col] > '0')
-            values[cur_line-1][val_col]--;          
+      case BT_UP:
+        if (cur_col == 0){
+          if (cur_line > 0)
+            cur_line--;
+        } else{
+          if (menu_types[cur_line-1] == MN_FLOAT){
+            uint8_t val_col = cur_col - field_pos;
+            if (values[cur_line-1][val_col] < '9')
+              values[cur_line-1][val_col]++;
+          }else if(menu_types[cur_line-1] == MN_INT){
+              tmp = atoi(values[cur_line-1]);
+              //limite superior ?
+              //if ()
+              tmp++;
+              sprintf(values[cur_line-1], "%d", tmp);                
+              
+          }            
         }
+        
       break;
 
-      case BT_UP:
-        if ((cur_col == 0) && (cur_line < OPTION_COUNT)){
-          cur_line++;
+      case BT_DOWN:
+        
+        if (cur_col == 0){
+          if (cur_line < OPTION_COUNT)
+            cur_line++;
         }else{
-          uint8_t val_col = cur_col - field_pos;
-          if (values[cur_line-1][val_col] < '9')
-            values[cur_line-1][val_col]++;       
+          if (menu_types[cur_line-1] == MN_FLOAT){
+            uint8_t val_col = cur_col - field_pos;
+            if (values[cur_line-1][val_col] > '0')
+              values[cur_line-1][val_col]--;              
+          }else if(menu_types[cur_line-1] == MN_INT){
+            tmp = atoi(values[cur_line-1]);
+            //limite inferior? por enquanto 0
+            if (tmp > 0) tmp--;
+            sprintf(values[cur_line-1], "%d", tmp);                
+          }       
         }
+        
       break;
 
       case BT_RIGHT:
@@ -120,7 +147,6 @@ void callback(uint8_t btPin){
     }
     // in the first line the menu is the status menu
     if (cur_line == 0){
-      print_status();
       return;
     }
 
@@ -136,10 +162,13 @@ void callback(uint8_t btPin){
     lcd.print(values[cur_line-1]);
     lcd.setCursor(0, 1);
     char lval_str[8];
-    sprintf(lval_str, "%d", lamp_val);
+    tmp = atoi(values[3]);
+    sprintf(lval_str, "%d", tmp);
     lcd.print(lval_str);
     lcd.cursor();
     lcd.setCursor(cur_col, 0);
+    
+    analogWrite(11, tmp);
     
 }
  
@@ -150,10 +179,6 @@ void setup()
   lcd.begin(16, 2);
   lcd.cursor();
 
-  //Define o constraste
-  pinMode(11, OUTPUT);
-  analogWrite(3, 30);
-
   //Setup of the debounce algo
   //pinMode(buttonPin, INPUT_PULLUP);
   //pinMode(ledPin, OUTPUT);
@@ -161,13 +186,14 @@ void setup()
   buttons.setCallback(callback);
   sensors.getAddress(sensor1, 0);
   pinMode(3, OUTPUT);
+  pinMode(11, OUTPUT);
      
 }
 
  
 void loop(){
   buttons.handleButtons();
-
+  
   unsigned long curtime = millis();
   if( ((curtime - lastDspUpdte) > 1000 && (cur_line == 0) )){
     lastDspUpdte = curtime;
