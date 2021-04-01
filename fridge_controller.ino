@@ -1,6 +1,9 @@
  
 //Carrega a biblioteca LiquidCrystal
 #include <LiquidCrystal.h>
+#include <PID_v2.h>
+#include <EEPROM.h>
+#include "menu.h"
 
 #include "button.h"
 #include <avr/pgmspace.h>
@@ -16,16 +19,18 @@
 #define NUM_STR_SZ 5
 #define NUM_SPR_POS 2
 
-#define OPTION_COUNT 4
+#define OPTION_COUNT 7
 
-typedef enum MENU_TYPE_ {MN_FLOAT = 1, MN_STRING = 2, MN_INT = 3} MENU_TYPE;
 
 const char opt_0[] PROGMEM = "Temp: "; // "String 0" etc são as strings a serem armazenadas - adapte ao seu programa.
 const char opt_1[] PROGMEM = "SetPo.: ";
 const char opt_2[] PROGMEM = "Hister.: ";
 const char opt_3[] PROGMEM = "Contrst.";
+const char opt_4[] PROGMEM = "PID (P):";
+const char opt_5[] PROGMEM = "PID (I):";
+const char opt_6[] PROGMEM = "PID (D):";
 
-const char *const options_str[] PROGMEM = {opt_0, opt_1, opt_2, opt_3};
+const char *const options_str[] PROGMEM = {opt_0, opt_1, opt_2, opt_3, opt_4, opt_5, opt_6};
 
 
  
@@ -52,9 +57,12 @@ uint8_t cur_line = 0;
 uint8_t cur_col = 0;
 uint8_t field_pos = 0;
 
-char * values[4] = {"01.00", "02.00", "03.00", "30  "};
-MENU_TYPE menu_types[4] = {MN_FLOAT, MN_FLOAT, MN_FLOAT, MN_INT};
+char values[OPTION_COUNT][6] = {"01.00", "02.00", "03.00", "30  ","00.00", "00.00", "00.00"};
+MENU_TYPE menu_types[OPTION_COUNT] = {MN_FLOAT, MN_FLOAT, MN_FLOAT, MN_INT, MN_FLOAT, MN_FLOAT, MN_FLOAT};
 
+
+double Kp = 2, Ki = 5, Kd = 1;
+PID_v2 myPID(Kp, Ki, Kd, PID::Direct);
 
 void print_status(){
   char status_str[16];
@@ -151,7 +159,7 @@ void callback(uint8_t btPin){
     }
 
     
-    // in the rest of the lines is the parameters menu
+    // the other lines are the parameters menu
     strcpy_P(tmp_str, (char *) pgm_read_word(&(options_str[cur_line-1])));
     field_pos = sprintf(menu_str, "%d %s", cur_line, tmp_str);
 
@@ -198,7 +206,7 @@ void loop(){
   if( ((curtime - lastDspUpdte) > 1000 && (cur_line == 0) )){
     lastDspUpdte = curtime;
     sensors.requestTemperatures();
-    tempC = sensors.getTempC(sensor1);
+    tempC = sensors.getTempC(sensor1); 
     lcd.clear();
     lcd.setCursor(0, 0);
     print_status();
