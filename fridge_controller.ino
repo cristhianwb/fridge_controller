@@ -22,6 +22,8 @@
 #define OPTION_COUNT 7
 
 
+
+
 const char opt_0[] PROGMEM = "Temp: "; // "String 0" etc são as strings a serem armazenadas - adapte ao seu programa.
 const char opt_1[] PROGMEM = "SetPo.: ";
 const char opt_2[] PROGMEM = "Hister.: ";
@@ -29,6 +31,25 @@ const char opt_3[] PROGMEM = "Contrst.";
 const char opt_4[] PROGMEM = "PID (P):";
 const char opt_5[] PROGMEM = "PID (I):";
 const char opt_6[] PROGMEM = "PID (D):";
+
+
+
+
+//Aqui são definidos os menus
+
+const menu SubMenu_1 PROGMEM = {.desc = opt_1,.val = (MenuValue) {.i=21}, .menu_type = MN_INT, .eeprom_addr = NULL};
+
+const menu *const pid_options[] PROGMEM = {&SubMenu_1, NULL};
+
+const menu MENU_1 PROGMEM = {.desc = opt_1,.val = (MenuValue) {.i=21}, .menu_type = MN_INT, .eeprom_addr = NULL};
+const menu MENU_2 PROGMEM = {.desc = opt_2,.val = (MenuValue) {.i=26}, .menu_type = MN_INT, .eeprom_addr = NULL};
+//Nesse caso como é um submenu o valor dele aponta para um array de menus
+//Quando entrar nele o MenuRender vai precisar gravar a referencia do array de menus anterior para retornar
+const menu MENU_3 PROGMEM = {.desc = opt_2,.val = (MenuValue) {.submenu=pid_options}, .menu_type = MN_SUBMENU, .eeprom_addr = NULL};
+
+//Aqui é definida a lista de menus
+const menu *const options[] PROGMEM = {&MENU_1, &MENU_2, NULL};
+
 
 const char *const options_str[] PROGMEM = {opt_0, opt_1, opt_2, opt_3, opt_4, opt_5, opt_6};
 
@@ -38,7 +59,7 @@ const char *const options_str[] PROGMEM = {opt_0, opt_1, opt_2, opt_3, opt_4, op
 LiquidCrystal lcd(7, 6, 5, 4, A5, 2);
 uint8_t btns[] = {BT_DOWN, BT_UP, BT_LEFT, BT_RIGHT};
 Button buttons(btns, 4, 50);
-
+MenuRender menu_render(options, &lcd);
 
 #define ONE_WIRE_BUS 14
 
@@ -72,7 +93,11 @@ void print_status(){
   sprintf(status_str, "Temp.: %s", t_str);
   lcd.print(status_str);
   lcd.setCursor(0, 1);
-  sprintf(status_str, "%d %d", cur_line, cur_col);
+  menu mn;
+  memcpy_P(&mn, &MENU_1, sizeof(menu));
+  
+  
+  sprintf(status_str, "%d", mn.val.i);
   lcd.print(status_str);
 }
 
