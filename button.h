@@ -2,6 +2,13 @@
 #ifndef BUTTON_H
 #define BUTTON_H
 
+#define BT_DOWN 8
+#define BT_UP 9
+#define BT_LEFT 10
+#define BT_RIGHT 12
+
+
+
 class Button {
   public:
     Button(uint8_t pins[10], uint8_t count,unsigned int interval);

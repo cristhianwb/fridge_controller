@@ -10,22 +10,22 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 
-#define BT_DOWN 8
-#define BT_UP 9
-#define BT_LEFT 10
-#define BT_RIGHT 12
-
 
 #define NUM_STR_SZ 5
 #define NUM_SPR_POS 2
 
 #define OPTION_COUNT 7
 
+double Kp = 2, Ki = 5, Kd = 1;
+float tempC = 0;
 
-
-
-const char opt_0[] PROGMEM = "Temp: "; // "String 0" etc são as strings a serem armazenadas - adapte ao seu programa.
-const char opt_1[] PROGMEM = "SetPo.: ";
+//The submenus of PID menu
+const char P_mn_desc[] PROGMEM = "P: ";
+const char I_mn_desc[] PROGMEM = "I: ";
+const char D_mn_desc[] PROGMEM = "D: ";
+//The main menus
+const char Temp_mn_desc[] PROGMEM = "Temp: ";
+const char PID_mn_desc[] PROGMEM = "PID: ";
 const char opt_2[] PROGMEM = "Hister.: ";
 const char opt_3[] PROGMEM = "Contrst.";
 const char opt_4[] PROGMEM = "PID (P):";
@@ -33,25 +33,30 @@ const char opt_5[] PROGMEM = "PID (I):";
 const char opt_6[] PROGMEM = "PID (D):";
 
 
+void set_P(MenuValue val);
+void set_I(MenuValue val);
+void set_D(MenuValue val);
 
 
 //Aqui são definidos os menus
 
-const menu SubMenu_1 PROGMEM = {.desc = opt_1,.val = (MenuValue) {.i=21}, .menu_type = MN_INT, .eeprom_addr = NULL};
+const menu P_menu PROGMEM = {.desc = P_mn_desc,.val = &Kp, .menu_type = MN_INT, .eeprom_addr = NULL, .callback = set_P};
+const menu I_menu PROGMEM = {.desc = I_mn_desc,.val = &Ki, .menu_type = MN_INT, .eeprom_addr = NULL, .callback = set_I};
+const menu D_menu PROGMEM = {.desc = D_mn_desc,.val = &Kd, .menu_type = MN_INT, .eeprom_addr = NULL, .callback = set_D};
 
-const menu *const pid_options[] PROGMEM = {&SubMenu_1, NULL};
+const menu *const pid_options[] PROGMEM = {NULL, &P_menu, &I_menu, &D_menu, NULL};
 
-const menu MENU_1 PROGMEM = {.desc = opt_1,.val = (MenuValue) {.i=21}, .menu_type = MN_INT, .eeprom_addr = NULL};
-const menu MENU_2 PROGMEM = {.desc = opt_2,.val = (MenuValue) {.i=26}, .menu_type = MN_INT, .eeprom_addr = NULL};
+const menu Temp_menu PROGMEM = {.desc = Temp_mn_desc,.val = &tempC, .menu_type = MN_INT, .eeprom_addr = NULL};
 //Nesse caso como é um submenu o valor dele aponta para um array de menus
-//Quando entrar nele o MenuRender vai precisar gravar a referencia do array de menus anterior para retornar
-const menu MENU_3 PROGMEM = {.desc = opt_2,.val = (MenuValue) {.submenu=pid_options}, .menu_type = MN_SUBMENU, .eeprom_addr = NULL};
+//Quando entrar nele o MenuHandler vai precisar gravar a referencia do array de menus anterior para retornar
+const menu Pid_menu PROGMEM = {.desc = PID_mn_desc,.val = pid_options, .menu_type = MN_SUBMENU, .eeprom_addr = NULL};
 
 //Aqui é definida a lista de menus
-const menu *const options[] PROGMEM = {&MENU_1, &MENU_2, NULL};
+//Foi adicionado um elemnto NULL no inicio e no fim, para indicar onde começa e termina a lista
+const menu *const options[] PROGMEM = {NULL, &Temp_menu, &Pid_menu, &Pid_menu, NULL};
 
 
-const char *const options_str[] PROGMEM = {opt_0, opt_1, opt_2, opt_3, opt_4, opt_5, opt_6};
+//const char *const options_str[] PROGMEM = {opt_0, opt_1, opt_2, opt_3, opt_4, opt_5, opt_6};
 
 
  
@@ -59,7 +64,7 @@ const char *const options_str[] PROGMEM = {opt_0, opt_1, opt_2, opt_3, opt_4, op
 LiquidCrystal lcd(7, 6, 5, 4, A5, 2);
 uint8_t btns[] = {BT_DOWN, BT_UP, BT_LEFT, BT_RIGHT};
 Button buttons(btns, 4, 50);
-MenuRender menu_render(options, &lcd);
+MenuHandler menu_handler(options, &lcd);
 
 #define ONE_WIRE_BUS 14
 
@@ -67,7 +72,7 @@ OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 DeviceAddress sensor1;
 
-float tempC = 0;
+
 
 unsigned long lastDspUpdte = 0;
 int ledState = LOW;
@@ -78,13 +83,14 @@ uint8_t cur_line = 0;
 uint8_t cur_col = 0;
 uint8_t field_pos = 0;
 
-char values[OPTION_COUNT][6] = {"01.00", "02.00", "03.00", "30  ","00.00", "00.00", "00.00"};
-MENU_TYPE menu_types[OPTION_COUNT] = {MN_FLOAT, MN_FLOAT, MN_FLOAT, MN_INT, MN_FLOAT, MN_FLOAT, MN_FLOAT};
+//char values[OPTION_COUNT][6] = {"01.00", "02.00", "03.00", "30  ","00.00", "00.00", "00.00"};
+//MENU_TYPE menu_types[OPTION_COUNT] = {MN_FLOAT, MN_FLOAT, MN_FLOAT, MN_INT, MN_FLOAT, MN_FLOAT, MN_FLOAT};
 
 
-double Kp = 2, Ki = 5, Kd = 1;
+
 PID_v2 myPID(Kp, Ki, Kd, PID::Direct);
 
+/*
 void print_status(){
   char status_str[16];
   char t_str[10];
@@ -94,14 +100,14 @@ void print_status(){
   lcd.print(status_str);
   lcd.setCursor(0, 1);
   menu mn;
-  memcpy_P(&mn, &MENU_1, sizeof(menu));
+  //memcpy_P(&mn, &MENU_1, sizeof(menu));
   
   
   sprintf(status_str, "%d", mn.val.i);
   lcd.print(status_str);
-}
+}*/
 
-
+/*
 void callback(uint8_t btPin){
     char tmp_str[10];
     char menu_str[16];
@@ -203,6 +209,23 @@ void callback(uint8_t btPin){
     
     analogWrite(11, tmp);
     
+}*/
+
+void set_P(MenuValue val){
+  
+}
+
+void set_I(MenuValue val){
+  
+}
+
+void set_D(MenuValue val){
+  
+}
+
+
+void callback(uint8_t btn){
+  menu_handler.buttonClick(btn);
 }
  
 void setup()
@@ -232,9 +255,8 @@ void loop(){
     lastDspUpdte = curtime;
     sensors.requestTemperatures();
     tempC = sensors.getTempC(sensor1); 
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    print_status();
+    menu_handler.Render();
+    //print_status();
   }
   
 }
