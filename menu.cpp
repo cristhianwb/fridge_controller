@@ -56,6 +56,10 @@ void MenuHandler::handle_set_menu(uint8_t btn){
           this->cur_state = ST_SET_INT;
         break;
 
+        case MN_ON_OFF:
+          this->cur_state = ST_SET_ON_OFF;
+        break;
+
         case MN_FLOAT:
           this->cur_state = ST_SET_FLOAT;
           col = f_point-1;
@@ -77,6 +81,7 @@ void MenuHandler::handle_set_menu(uint8_t btn){
             this->load_cur_menu(0);
           }
         break;
+
       }
     break;
   }
@@ -103,6 +108,7 @@ void MenuHandler::handle_set_int(uint8_t btn){
 
     break;
   }
+  
 }
 
 void MenuHandler::handle_set_float(uint8_t btn){
@@ -146,6 +152,30 @@ void MenuHandler::handle_set_float(uint8_t btn){
 void MenuHandler::handle_set_string(uint8_t btn){
   
 }
+
+void MenuHandler::handle_set_on_off(uint8_t btn){
+    bool* val;
+    val = (bool*) this->cur_menu.val;
+    
+    switch (btn){
+      case BT_UP:
+        (*val) = !(*val);    
+      break;
+      
+      case BT_DOWN:
+        (*val) = !(*val);
+      break;
+      
+      case BT_LEFT:
+        this->cur_state = ST_SET_MENU;
+        col = 0;
+          return;
+      break;
+  
+    }
+
+}
+
 /*
 when clicking a button, the action should be redirected to the handler of the current state in state machine
 the handler then will tell if should change the state or not
@@ -167,8 +197,14 @@ void MenuHandler::buttonClick(uint8_t btn){
     case ST_SET_STR:
       handle_set_string(btn);
     break;
+
+    case ST_SET_ON_OFF:
+      handle_set_on_off(btn);
+    break;
     
   }
+  if ((this->cur_menu.menu_type != MN_VIEW) && (this->cur_menu.callback != NULL))
+      this->cur_menu.callback(this->cur_menu.val);
   this->Render();
 }
 
@@ -198,6 +234,10 @@ int MenuHandler::print_menu(char *text){
           col = f_point+2;
           
     break;
+
+    case MN_ON_OFF:
+      col = sprintf(text+sz, "%s", *((bool*) this->cur_menu.val) ? "ON" : "OFF")-1;
+    break;
   }
   return sz;
 }
@@ -214,9 +254,7 @@ void MenuHandler::Render(){
      sprintf(text, "== %s ==", title);
      desc_size = print_menu(text+16);
   }
-    
-    
-  //itoa(this->cur_menu.val.i, text, 10);
+  
   screen->clear();
   screen->setCursor(0, 0);
   screen->print(text);
