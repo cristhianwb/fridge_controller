@@ -21,6 +21,7 @@ struct {
   double SetPoint = 15;
   int contrast = 30;
   int relay_threshould_on = 30;
+  bool motor_on = false;
 }cfg;
 
 
@@ -41,6 +42,8 @@ const char relay_mn_desc[] PROGMEM = "Rly Trh.";
 //The main menus
 
 const char cont_mn_desc[] PROGMEM = "Contrst.";
+const char motor_on_mn_desc[] PROGMEM = "Motor";
+
 const char gen_mn_desc[] PROGMEM = "Cfg. Ger.";
 
 const char save_mn_desc[] PROGMEM = "Save?";
@@ -76,8 +79,10 @@ const menu Pid_menu PROGMEM = {.desc = PID_mn_desc,.val = pid_options, .menu_typ
 const menu save_menu PROGMEM = {.desc = save_mn_desc,.val = &save, .menu_type = MN_ON_OFF,.callback = call_save};
 const menu reset_menu PROGMEM = {.desc = reset_mn_desc,.val = &areset, .menu_type = MN_ON_OFF, .callback = call_reset };
 const menu contrast_menu PROGMEM = {.desc = cont_mn_desc,.val = &cfg.contrast, .menu_type = MN_INT };
+const menu motor_on PROGMEM = {.desc = motor_on_mn_desc,.val = &cfg.motor_on, .menu_type = MN_ON_OFF };
+
 //Depois o principal
-const menu *const gen_options[] PROGMEM = {NULL, &contrast_menu, &save_menu, &reset_menu,  NULL};
+const menu *const gen_options[] PROGMEM = {NULL,&motor_on, &contrast_menu, &save_menu, &reset_menu,  NULL};
 const menu Gen_conf_menu PROGMEM = {.desc = gen_mn_desc,.val = gen_options, .menu_type = MN_SUBMENU };
 
 //Aqui é definida a lista principal de menus 
@@ -183,28 +188,35 @@ void setup()
   pinMode(3, OUTPUT);
   pinMode(11, OUTPUT);
   pinMode(PIN_A1, OUTPUT);
-
+  sensors.requestTemperatures();
+  delay(800);
+  sensors.requestTemperatures();
+  delay(800);
+  tempC = sensors.getTempC(sensor1);
   load_cfg();
-  
+  set_PID(NULL);
+  myPID.SetSampleTime(1000);
   myPID.Start(tempC,  // input
               0,                      // current output
               cfg.SetPoint);
-  myPID.SetSampleTime(1000);
+
 }
 
  
 void loop(){
   buttons.handleButtons();
-  analogWrite(11, cfg.contrast);
-  analogWrite(3, output);
-  digitalWrite(PIN_A1, relay);
+  
+
   unsigned long curtime = millis();
   if( ((curtime - lastDspUpdte) > 1000)){
     lastDspUpdte = curtime;
-    sensors.requestTemperatures();
-    tempC = sensors.getTempC(sensor1); 
+    tempC = sensors.getTempC(sensor1);
+    sensors.requestTemperatures(); 
     menu_handler.Render();
     output = (int) myPID.Run(tempC);
-    relay = (output > cfg.relay_threshould_on);    
+    relay = (output > cfg.relay_threshould_on) && cfg.motor_on;
+    analogWrite(3, output);
+    digitalWrite(PIN_A1, relay);
+    analogWrite(11, cfg.contrast);    
   }  
 }
