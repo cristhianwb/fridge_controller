@@ -17,35 +17,48 @@
 #define OPTION_COUNT 7
 
 struct {
-  double Kp = 5, Ki = 0.05, Kd = 0.2;  
-  double SetPoint = 15;
+  double cooling_sp = 18, heating_sp = 16;
+  double cooling_hyst, heating_hyst;
+  int cooling_f_speed = 0, heating_f_speed = 0; 
+  bool cooling_en = true, heating_en = false;
   int contrast = 30;
   int relay_threshould_on = 30;
   bool motor_on = false;
+  
 }cfg;
 
 
 double tempC = 0;
-int output = 0;
+int fan = 0;
+bool cooling = false, heating = false;
 bool save = false, areset = false;
 bool relay = false;
 
 
+/******* Title Strings of menus **********/
 
-//The submenus of PID menu
-const char PID_mn_desc[] PROGMEM = "PID Conf.";
-const char P_mn_desc[] PROGMEM = "Prop.";
-const char I_mn_desc[] PROGMEM = "Int.";
-const char D_mn_desc[] PROGMEM = "Der.";
+
+/*### Titles of cooling menu ###*/
+
+const char cooling_mn_desc[] PROGMEM = "Cooling Cfg";
+
+
+/*### Titles of the heating menu*/
+
+const char heating_mn_desc[] PROGMEM = "Heating Cfg";
+const char heating_hyst_desc[] PROGMEM = "Hysteresis";
+
+//Common to both
 const char SetP_mn_desc[] PROGMEM = "Set Po.";
-const char relay_mn_desc[] PROGMEM = "Rly Trh.";
-//The main menus
+const char fan_desc[] PROGMEM = "Fan Speed";
+const char hyst_desc[] PROGMEM = "Hyster.";
+const char en_desc[] PROGMEM = "Enabled";
 
+//The main config menus
+
+const char gen_mn_desc[] PROGMEM = "Main Cfg.";
 const char cont_mn_desc[] PROGMEM = "Contrst.";
 const char motor_on_mn_desc[] PROGMEM = "Motor";
-
-const char gen_mn_desc[] PROGMEM = "Cfg. Ger.";
-
 const char save_mn_desc[] PROGMEM = "Save?";
 const char reset_mn_desc[] PROGMEM = "Reset?";
 
@@ -58,21 +71,33 @@ void call_reset(void* val);
 void call_save(void* val);
 
 
-//Aqui são definidos os menus
+//Here the menus are defined
 
-//Primeiro menu, status atual
+//First of all, the status menu
 const menu Temp_menu PROGMEM = {.desc = NULL,.val = &tempC, .menu_type = MN_VIEW,  .callback = temp_status};
 
-//Segundo menu, menu de configurações do PID
-//Primeiro os submenus
-const menu P_menu PROGMEM = {.desc = P_mn_desc,.val = &cfg.Kp, .menu_type = MN_FLOAT, .callback = set_PID};
-const menu I_menu PROGMEM = {.desc = I_mn_desc,.val = &cfg.Ki, .menu_type = MN_FLOAT, .callback = set_PID};
-const menu D_menu PROGMEM = {.desc = D_mn_desc,.val = &cfg.Kd, .menu_type = MN_FLOAT, .callback = set_PID};
-const menu StP_menu PROGMEM = {.desc = SetP_mn_desc,.val = &cfg.SetPoint, .menu_type = MN_FLOAT, .callback = set_PID};
-const menu thr_on_menu PROGMEM = {.desc = relay_mn_desc,.val = &cfg.relay_threshould_on, .menu_type = MN_INT, .callback = NULL};
-//E depois o menu principal
-const menu *const pid_options[] PROGMEM = {NULL, &P_menu, &I_menu, &D_menu, &StP_menu, &thr_on_menu, NULL};
-const menu Pid_menu PROGMEM = {.desc = PID_mn_desc,.val = pid_options, .menu_type = MN_SUBMENU };
+//Second one, cooling menus
+
+const menu cooling_hyst_menu PROGMEM = {.desc = hyst_desc,.val = &cfg.cooling_hyst, .menu_type = MN_FLOAT, .callback = set_PID};
+const menu cooling_fan_menu PROGMEM = {.desc = fan_desc,.val = &cfg.cooling_f_speed, .menu_type = MN_INT, .callback = set_PID};
+const menu cooling_StP_menu PROGMEM = {.desc = SetP_mn_desc,.val = &cfg.cooling_sp, .menu_type = MN_FLOAT, .callback = set_PID};
+const menu cooling_en_menu PROGMEM = {.desc = en_desc,.val = &cfg.cooling_en, .menu_type = MN_ON_OFF, .callback = set_PID};
+
+const menu *const cooling_options[] PROGMEM = {NULL, &cooling_hyst_menu, &cooling_fan_menu, &cooling_StP_menu, &cooling_en_menu, NULL};
+
+const menu cooling_menu PROGMEM = {.desc = cooling_mn_desc,.val = cooling_options, .menu_type = MN_SUBMENU };
+
+
+
+const menu heating_hyst_menu PROGMEM = {.desc = hyst_desc,.val = &cfg.heating_hyst, .menu_type = MN_FLOAT, .callback = set_PID};
+const menu heating_fan_menu PROGMEM = {.desc = fan_desc,.val = &cfg.heating_f_speed, .menu_type = MN_INT, .callback = set_PID};
+const menu heating_StP_menu PROGMEM = {.desc = SetP_mn_desc,.val = &cfg.heating_sp, .menu_type = MN_FLOAT, .callback = set_PID};
+const menu heating_en_menu PROGMEM = {.desc = en_desc,.val = &cfg.heating_en, .menu_type = MN_ON_OFF, .callback = set_PID};
+
+const menu *const heating_options[] PROGMEM = {NULL, &heating_hyst_menu, &heating_fan_menu, &heating_StP_menu, &heating_en_menu, NULL};
+
+const menu heating_menu PROGMEM = {.desc = heating_mn_desc,.val = heating_options, .menu_type = MN_SUBMENU };
+
 
 //Por ultimo o menu de configurações gerais
 //Primeiro os submenus
@@ -87,7 +112,7 @@ const menu Gen_conf_menu PROGMEM = {.desc = gen_mn_desc,.val = gen_options, .men
 
 //Aqui é definida a lista principal de menus 
 //Foi adicionado um elemnto NULL no inicio e no fim, para indicar onde começa e termina a lista
-const menu *const options[] PROGMEM = {NULL, &Temp_menu, &Pid_menu, &Gen_conf_menu, NULL};
+const menu *const options[] PROGMEM = {NULL, &Temp_menu, &cooling_menu, &heating_menu, &Gen_conf_menu, NULL};
 
  
 //Define os pinos que serão utilizados para ligação ao display
@@ -107,9 +132,8 @@ unsigned long lastDspUpdte = 0;
 int ledState = LOW;
 int pinpressed;
 
-//MENU DEFS
 
-PID_v2 myPID(cfg.Kp, cfg.Ki, cfg.Kd, PID::Reverse);
+
 
 
 void call_reset(void* val){
@@ -137,16 +161,31 @@ void call_save(void* val){
 }
 
 void set_PID(void* val){
-  myPID.SetTunings(cfg.Kp, cfg.Ki, cfg.Kd);
-  myPID.Setpoint(cfg.SetPoint);
+  //myPID.SetTunings(cfg.Kp, cfg.Ki, cfg.Kd);
+  //myPID.Setpoint(cfg.SetPoint);
 }
 
 void temp_status(void* val){
   char t_str[6];
+  static int second_view = 10;
+  bool second_view_b;
+
+  second_view_b = (second_view < 5);
+  
   dtostrf(tempC, 2, 2, t_str);
-  sprintf( (char*) val, "T: %s M: %s", t_str, relay ? "ON": "OFF");
-  dtostrf(cfg.SetPoint, 2, 2, t_str);
-  sprintf((char*) val+16, "S: %s P: %d",t_str, output);
+  
+  if (second_view_b){
+    sprintf( (char*) val, "T: %s M: %s", t_str, cooling ? "ON": "OFF");
+    dtostrf(cfg.cooling_sp, 2, 2, t_str);
+    sprintf((char*) val+16, "CS: %s F: %d",t_str, fan);
+  }else{
+    sprintf( (char*) val, "T: %s H: %s", t_str, heating ? "ON": "OFF");
+    dtostrf(cfg.heating_sp, 2, 2, t_str);
+    sprintf((char*) val+16, "HS: %s F: %d",t_str, fan);
+  }
+    
+  if (second_view-- == 0)
+    second_view = 10;
 }
 
 
@@ -195,10 +234,7 @@ void setup()
   tempC = sensors.getTempC(sensor1);
   load_cfg();
   set_PID(NULL);
-  myPID.SetSampleTime(1000);
-  myPID.Start(tempC,  // input
-              0,                      // current output
-              cfg.SetPoint);
+  
 
 }
 
@@ -213,10 +249,35 @@ void loop(){
     tempC = sensors.getTempC(sensor1);
     sensors.requestTemperatures(); 
     menu_handler.Render();
-    output = (int) myPID.Run(tempC);
-    relay = (output > cfg.relay_threshould_on) && cfg.motor_on;
-    analogWrite(3, output);
-    digitalWrite(PIN_A1, relay);
-    analogWrite(11, cfg.contrast);    
+    
+    
+    if (!cooling && (tempC >= (cfg.cooling_sp + cfg.cooling_hyst)))
+      cooling = true;
+
+    if (cooling && (tempC <= cfg.cooling_sp))
+      cooling = false;
+
+    cooling = cooling && cfg.cooling_en;
+
+    if (!heating && (tempC <= (cfg.heating_sp - cfg.heating_hyst)))
+      heating = true;
+
+    if (heating && (tempC >= cfg.heating_sp))
+      heating = false;
+
+    heating = heating && cfg.heating_en;
+    
+    if (cooling && (cfg.cooling_f_speed > 0)){
+      fan = cfg.cooling_f_speed;
+    }else if (heating && (cfg.heating_f_speed > 0)){
+      fan = cfg.heating_f_speed;
+    }else{
+      fan = 0;
+    }
+    
+    analogWrite(3, fan);
+    digitalWrite(PIN_A1, cooling);
+    //digitalWrite(PIN_A1, heating);
+    analogWrite(11, cfg.contrast);
   }  
 }
